@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,17 +31,8 @@ class _StandaloneVSCodeAppState extends State<StandaloneVSCodeApp> {
     if (mounted) setState(() {
       isStarting = true;
       serverUrl = null;
-      statusText = 'Checking storage permission...';
+      statusText = 'Starting local VS Code workspace...';
     });
-    final storage = await Permission.manageExternalStorage.request();
-    if (!storage.isGranted && mounted) {
-      setState(() {
-        isStarting = false;
-        statusText = 'Storage permission is required to open folders.';
-      });
-      return;
-    }
-    if (mounted) setState(() => statusText = 'Starting local Node.js server...');
     try {
       final url = await platform.invokeMethod<String>('startVSCodeServer');
       if (url == null || url.isEmpty) throw PlatformException(code: 'EMPTY_URL');

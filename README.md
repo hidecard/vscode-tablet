@@ -10,7 +10,7 @@ A Flutter Android shell that runs **openvscode-server locally inside a standalon
 - Embedded Node.js entry point through JNI/C++
 - First-run extraction with a version marker
 - Localhost server readiness polling before WebView launch
-- Android storage permission request for user workspaces
+- App-private workspace that works without broad storage permission
 - arm64-only baseline configuration
 
 ## Project layout
@@ -50,6 +50,8 @@ bash scripts/build-apk.sh
 ```
 
 The output is written under `build/app/outputs/flutter-apk/`. Set `KEEP_RUNTIME=1` if you want to keep the downloaded runtime and headers after the build. If `assets/vscode/out/server-main.js` is missing, the script still produces an APK but the app will show a server error until an Android-compatible OpenVSCode Server bundle is supplied.
+
+The app now starts with an app-private workspace under `filesDir/workspace`, so it does not block startup when broad storage permission is denied. A future Storage Access Framework picker can grant access to user-selected folders without changing the startup flow.
 
 The build script also applies the temporary AGP 9 compatibility property required by the current `flutter_inappwebview_android` release plugin. It is written to `android/gradle.properties` only when missing.
 

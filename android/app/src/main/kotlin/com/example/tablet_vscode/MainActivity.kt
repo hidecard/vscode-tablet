@@ -45,12 +45,14 @@ class MainActivity : FlutterActivity() {
                 }
                 val entry = File(targetDir, "out/server-main.js")
                 require(entry.isFile) { "Missing ${entry.path}; add openvscode-server assets." }
+                val workspace = File(filesDir, "workspace")
+                if (!workspace.exists()) workspace.mkdirs()
                 isServerStarted = true
                 Thread {
                     startNodeWithArguments(arrayOf(
                         "node", entry.absolutePath, "--host", "127.0.0.1",
                         "--port", "8080", "--without-connection-token",
-                        "--default-folder", "/storage/emulated/0/Documents"
+                        "--default-folder", workspace.absolutePath
                     ))
                     isServerStarted = false
                 }.start()
