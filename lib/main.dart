@@ -50,19 +50,29 @@ class _StandaloneVSCodeAppState extends State<StandaloneVSCodeApp> {
     if (serverUrl == null) {
       return Scaffold(
         backgroundColor: const Color(0xFF1E1E1E),
-        body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (isStarting) const CircularProgressIndicator(color: Color(0xFF007ACC)),
-          const SizedBox(height: 16),
-          Text(statusText, style: const TextStyle(color: Colors.white70, fontSize: 15)),
-          if (!isStarting) ...[
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: _initEnvironment,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
-          ],
-        ])),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (isStarting)
+                const CircularProgressIndicator(color: Color(0xFF007ACC)),
+              const SizedBox(height: 16),
+              Text(
+                statusText,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, fontSize: 15),
+              ),
+              if (!isStarting) ...[
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: _initEnvironment,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ]),
+          ),
+        ),
       );
     }
     return WillPopScope(
