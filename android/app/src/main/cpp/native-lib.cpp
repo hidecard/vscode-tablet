@@ -2,8 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
-
-namespace node { int Start(int argc, char* argv[]); }
+#include "node.h"
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_example_tablet_1vscode_MainActivity_startNodeWithArguments(

@@ -35,11 +35,13 @@ lib/main.dart
 ## Setup
 
 1. Create a Flutter project or copy these files into an existing Flutter Android project.
-2. Put `libnode.so` at `android/app/src/main/jniLibs/arm64-v8a/libnode.so`.
+2. Run `bash scripts/fetch-nodejs-mobile.sh` to download the official Node.js Mobile Android package and stage its `arm64-v8a` `libnode.so` plus headers.
 3. Put the openvscode-server files under `assets/vscode/`, including `out/server-main.js`.
 4. Add the CMake `externalNativeBuild` block and `arm64-v8a` ABI filter to `android/app/build.gradle(.kts)`.
 5. Add the Gradle and manifest snippets in [`docs/android-config.md`](docs/android-config.md), only where your Android distribution policy permits it.
 6. Run `flutter pub get` and `flutter build apk --target-platform android-arm64`.
+
+The official Node.js Mobile Android package provides Android shared libraries and headers, but it does **not** provide an Android build of openvscode-server. The upstream OpenVSCode Server project documents Linux/Docker distributions; its Linux native addons cannot simply be copied into an Android APK. Building the server bundle and modules for Android Bionic remains a separate required step.
 
 ## Important compatibility notes
 
@@ -52,3 +54,9 @@ lib/main.dart
 ## License and third-party software
 
 This integration source is provided under the MIT License. openvscode-server, Node.js, Flutter packages, and native modules remain subject to their own licenses. Review and ship their license notices with any release.
+
+## Upstream references
+
+- [Node.js Mobile Android getting started](https://nodejs-mobile.github.io/docs/guide/guide-android/getting-started/)
+- [Node.js Mobile Android releases](https://github.com/nodejs-mobile/nodejs-mobile/releases)
+- [OpenVSCode Server](https://github.com/gitpod-io/openvscode-server)
