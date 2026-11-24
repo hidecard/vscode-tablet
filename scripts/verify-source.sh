@@ -23,6 +23,7 @@ grep -q "arm64-v8a" "${ROOT}/scripts/fetch-nodejs-mobile.sh"
 grep -q "out/server-main.js" "${ROOT}/android/app/src/main/kotlin/com/example/tablet_vscode/MainActivity.kt"
 grep -q "WillPopScope" "${ROOT}/lib/main.dart"
 grep -q "Retry" "${ROOT}/lib/main.dart"
+grep -q "proguardAndroidTxt.disallowed=false" "${ROOT}/scripts/build-apk.sh"
 
 bash -n "${ROOT}/scripts/fetch-nodejs-mobile.sh"
 bash -n "${ROOT}/scripts/build-apk.sh"

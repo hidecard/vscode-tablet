@@ -73,6 +73,15 @@ else
   exit 1
 fi
 
+# flutter_inappwebview_android 1.1.3 still references the legacy
+# proguard-android.txt file, which AGP 9 rejects by default. This is the
+# documented temporary escape hatch until the plugin migrates to the
+# optimized default file.
+touch android/gradle.properties
+if ! grep -q '^android\.r8\.proguardAndroidTxt\.disallowed=' android/gradle.properties; then
+  printf '\nandroid.r8.proguardAndroidTxt.disallowed=false\n' >> android/gradle.properties
+fi
+
 flutter pub get
 
 if [[ ! -f assets/vscode/out/server-main.js ]]; then

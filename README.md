@@ -51,6 +51,8 @@ bash scripts/build-apk.sh
 
 The output is written under `build/app/outputs/flutter-apk/`. Set `KEEP_RUNTIME=1` if you want to keep the downloaded runtime and headers after the build. If `assets/vscode/out/server-main.js` is missing, the script still produces an APK but the app will show a server error until an Android-compatible OpenVSCode Server bundle is supplied.
 
+The build script also applies the temporary AGP 9 compatibility property required by the current `flutter_inappwebview_android` release plugin. It is written to `android/gradle.properties` only when missing.
+
 GitHub Actions builds the same arm64 release APK when you push a `v*` tag or start **Build Android APK** manually from the Actions tab. The resulting APK is uploaded as a workflow artifact for 14 days.
 
 The official Node.js Mobile Android package provides Android shared libraries and headers, but it does **not** provide an Android build of openvscode-server. The upstream OpenVSCode Server project documents Linux/Docker distributions; its Linux native addons cannot simply be copied into an Android APK. Building the server bundle and modules for Android Bionic remains a separate required step.
