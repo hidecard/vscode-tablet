@@ -1,0 +1,12 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+build/
+.idea/
+*.iml
+android/.gradle/
+android/local.properties
+android/app/src/main/jniLibs/**/*.so
+assets/vscode/**
+!assets/vscode/.gitkeep
