@@ -72,6 +72,7 @@
 - [x] GitHub Actions arm64 APK artifact workflow ထည့်ပြီးပါပြီ
 - [x] GitHub Actions မှ actual arm64 release APK build နှင့် artifact download ကို verify လုပ်ပြီးပါပြီ
 - [x] Storage permission မရလည်း app-private workspace ဖြင့် startup ဆက်လုပ်နိုင်အောင် ပြင်ပြီးပါပြီ
+- [x] Pinned OpenVSCode Server asset auto-fetch script ထည့်ပြီးပါပြီ
 - [ ] Release APK နှင့် checksums ထုတ်ရန်
 - [ ] README တွင် supported devices၊ known issues နှင့် install guide update လုပ်ရန်
 

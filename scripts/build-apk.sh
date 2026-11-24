@@ -30,6 +30,9 @@ if [[ ! -f android/settings.gradle && ! -f android/settings.gradle.kts ]]; then
 fi
 
 bash scripts/fetch-nodejs-mobile.sh
+if [[ ! -f assets/vscode/out/server-main.js ]]; then
+  bash scripts/fetch-openvscode-assets.sh
+fi
 
 # Add the native build wiring once, supporting both Flutter Gradle dialects.
 if [[ -f android/app/build.gradle.kts ]]; then
@@ -90,9 +93,7 @@ fi
 
 flutter pub get
 
-if [[ ! -f assets/vscode/out/server-main.js ]]; then
-  echo "WARNING: assets/vscode/out/server-main.js is missing. The APK can build, but the app will show a server error until an Android-compatible OpenVSCode Server bundle is added." >&2
-fi
+[[ -f assets/vscode/out/server-main.js ]] || { echo "OpenVSCode Server assets were not prepared." >&2; exit 1; }
 
 flutter build apk --release --target-platform android-arm64
 APK="$(find build/app/outputs/flutter-apk -maxdepth 1 -type f -name '*.apk' | head -1)"

@@ -9,6 +9,7 @@ required=(
   "android/app/src/main/cpp/native-lib.cpp"
   "android/app/src/main/kotlin/com/example/tablet_vscode/MainActivity.kt"
   "scripts/fetch-nodejs-mobile.sh"
+  "scripts/fetch-openvscode-assets.sh"
   "scripts/build-apk.sh"
   ".github/workflows/build-apk.yml"
 )
@@ -26,6 +27,7 @@ grep -q "Retry" "${ROOT}/lib/main.dart"
 grep -q "proguardAndroidTxt.disallowed=false" "${ROOT}/scripts/build-apk.sh"
 
 bash -n "${ROOT}/scripts/fetch-nodejs-mobile.sh"
+bash -n "${ROOT}/scripts/fetch-openvscode-assets.sh"
 bash -n "${ROOT}/scripts/build-apk.sh"
 bash -n "${ROOT}/scripts/verify-source.sh"
 printf '%s\n' 'Source verification passed.'

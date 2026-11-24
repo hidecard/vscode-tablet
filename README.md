@@ -36,7 +36,7 @@ lib/main.dart
 
 1. Create a Flutter project or copy these files into an existing Flutter Android project.
 2. Run `bash scripts/fetch-nodejs-mobile.sh` to download the official Node.js Mobile Android package and stage its `arm64-v8a` `libnode.so` plus headers.
-3. Put the openvscode-server files under `assets/vscode/`, including `out/server-main.js`.
+3. Run `bash scripts/fetch-openvscode-assets.sh` to download the pinned OpenVSCode Server release and stage `out/server-main.js` plus UI assets.
 4. Add the CMake `externalNativeBuild` block and `arm64-v8a` ABI filter to `android/app/build.gradle(.kts)`.
 5. Add the Gradle and manifest snippets in [`docs/android-config.md`](docs/android-config.md), only where your Android distribution policy permits it.
 6. Run `flutter pub get` and `flutter build apk --target-platform android-arm64`.
@@ -49,9 +49,9 @@ Use the repository script to generate missing Flutter Android wrapper files, sta
 bash scripts/build-apk.sh
 ```
 
-The output is written under `build/app/outputs/flutter-apk/`. Set `KEEP_RUNTIME=1` if you want to keep the downloaded runtime and headers after the build. If `assets/vscode/out/server-main.js` is missing, the script still produces an APK but the app will show a server error until an Android-compatible OpenVSCode Server bundle is supplied.
+The output is written under `build/app/outputs/flutter-apk/`. The build script downloads both runtime packages automatically. Set `KEEP_RUNTIME=1` if you want to keep the downloaded runtime and assets after the build.
 
-The app now starts with an app-private workspace under `filesDir/workspace`, so it does not block startup when broad storage permission is denied. A future Storage Access Framework picker can grant access to user-selected folders without changing the startup flow.
+The app now starts with an app-private workspace under `filesDir/workspace`, so it does not block startup when broad storage permission is denied. A future Storage Access Framework picker can grant access to user-selected folders without changing the startup flow. The OpenVSCode release still contains Linux arm64 native addons; `node-pty` and `@vscode/spdlog` must be rebuilt for Android Bionic before production use.
 
 The build script also applies the temporary AGP 9 compatibility property required by the current `flutter_inappwebview_android` release plugin. It is written to `android/gradle.properties` only when missing.
 
