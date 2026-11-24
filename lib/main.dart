@@ -86,16 +86,21 @@ class _StandaloneVSCodeAppState extends State<StandaloneVSCodeApp> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF1E1E1E),
-        body: SafeArea(child: InAppWebView(
-          initialUrlRequest: URLRequest(url: WebUri(serverUrl!)),
-          initialSettings: InAppWebViewSettings(
-            javaScriptEnabled: true, domStorageEnabled: true, useWideViewPort: true,
-            supportZoom: false, mediaPlaybackRequiresUserGesture: false,
+        body: SafeArea(
+          child: InAppWebView(
+            initialUrlRequest: URLRequest(url: WebUri(serverUrl!)),
+            initialSettings: InAppWebViewSettings(
+              javaScriptEnabled: true,
+              domStorageEnabled: true,
+              useWideViewPort: true,
+              supportZoom: false,
+              mediaPlaybackRequiresUserGesture: false,
+            ),
+            onWebViewCreated: (controller) => webViewController = controller,
+            onLoadError: (controller, url, code, message) {
+              debugPrint('WebView load error [$code] $message at $url');
+            },
           ),
-          onWebViewCreated: (controller) => webViewController = controller,
-          onLoadError: (controller, url, code, message) {
-            debugPrint('WebView load error [$code] $message at $url');
-          },
         ),
       ),
     );
