@@ -39,7 +39,10 @@ if [[ -f android/app/build.gradle.kts ]]; then
 // VS Code Tablet native Node.js bridge.
 android {
     defaultConfig {
-        ndk { abiFilters += listOf("arm64-v8a") }
+        ndk {
+            abiFilters.clear()
+            abiFilters += listOf("arm64-v8a")
+        }
         externalNativeBuild {
             cmake { arguments += "-DANDROID_STL=c++_shared" }
         }
@@ -57,7 +60,10 @@ elif [[ -f android/app/build.gradle ]]; then
 // VS Code Tablet native Node.js bridge.
 android {
     defaultConfig {
-        ndk { abiFilters "arm64-v8a" }
+        ndk {
+            abiFilters.clear()
+            abiFilters.add("arm64-v8a")
+        }
         externalNativeBuild {
             cmake { arguments "-DANDROID_STL=c++_shared" }
         }
