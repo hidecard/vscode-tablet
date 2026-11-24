@@ -12,6 +12,7 @@ command -v flutter >/dev/null 2>&1 || {
 PROJECT_NAME="tablet_vscode"
 TEMP_PROJECT=""
 GITIGNORE_BACKUP=""
+PUBSPEC_BACKUP=""
 KEEP_RUNTIME="${KEEP_RUNTIME:-0}"
 
 cleanup() {
@@ -19,6 +20,10 @@ cleanup() {
   if [[ -n "${GITIGNORE_BACKUP}" && -f "${GITIGNORE_BACKUP}" ]]; then
     cp "${GITIGNORE_BACKUP}" "${ROOT}/.gitignore"
     rm -f "${GITIGNORE_BACKUP}"
+  fi
+  if [[ -n "${PUBSPEC_BACKUP}" && -f "${PUBSPEC_BACKUP}" ]]; then
+    cp "${PUBSPEC_BACKUP}" "${ROOT}/pubspec.yaml"
+    rm -f "${PUBSPEC_BACKUP}"
   fi
   if [[ "${KEEP_RUNTIME}" != "1" ]]; then
     rm -rf "${ROOT}/.runtime-cache" "${ROOT}/libnode"
@@ -112,6 +117,32 @@ fi
 GITIGNORE_BACKUP="$(mktemp)"
 cp .gitignore "${GITIGNORE_BACKUP}"
 sed -i '\|^assets/vscode/\*\*$|d' .gitignore
+
+# Flutter directory declarations include files in that directory, not the
+# entire nested server tree. Add every server subdirectory as an asset root
+# so imports and static files remain available to OpenVSCode at runtime.
+PUBSPEC_BACKUP="$(mktemp)"
+cp pubspec.yaml "${PUBSPEC_BACKUP}"
+python3 - <<'PY'
+from pathlib import Path
+import re
+
+pubspec = Path("pubspec.yaml")
+text = pubspec.read_text()
+pattern = re.compile(r"(?m)^  assets:\n(?:^    - .*\n)*")
+match = pattern.search(text)
+if not match:
+    raise SystemExit("Could not find flutter.assets in pubspec.yaml")
+
+root = Path("assets/vscode")
+directories = [root, *(path for path in root.rglob("*") if path.is_dir())]
+entries = "  assets:\n" + "".join(
+    f'    - "{path.as_posix().rstrip(chr(47))}/"\n'
+    for path in sorted(set(directories), key=lambda item: item.as_posix())
+)
+pubspec.write_text(text[:match.start()] + entries + text[match.end():])
+print(f"Configured {len(directories)} OpenVSCode asset directories for Flutter.")
+PY
 
 flutter pub get
 
