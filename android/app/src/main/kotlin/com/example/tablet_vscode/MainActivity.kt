@@ -62,19 +62,19 @@ class MainActivity : FlutterActivity() {
                     // point has been verified to exist on disk.
                     marker.createNewFile()
                 }
-                val workspace = File(filesDir, "workspace")
-                if (!workspace.exists()) workspace.mkdirs()
+                val port = (8000..8999).random()
+                val token = java.util.UUID.randomUUID().toString().replace("-", "")
                 isServerStarted = true
                 Thread {
                     startNodeWithArguments(arrayOf(
                         "node", entry.absolutePath, "--host", "127.0.0.1",
-                        "--port", "8080", "--without-connection-token",
+                        "--port", port.toString(), "--connection-token", token,
                         "--default-folder", workspace.absolutePath
                     ))
                     isServerStarted = false
                 }.start()
-                if (!waitForServerReady("127.0.0.1", 8080)) error("Server did not open port 8080")
-                runOnUiThread { result.success("http://127.0.0.1:8080") }
+                if (!waitForServerReady("127.0.0.1", port)) error("Server did not open port $port")
+                runOnUiThread { result.success("http://127.0.0.1:$port/?tkn=$token") }
             } catch (error: Exception) {
                 isServerStarted = false
                 runOnUiThread { result.error("SERVER_ERROR", error.message, null) }
