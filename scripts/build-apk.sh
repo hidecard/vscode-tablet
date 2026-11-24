@@ -11,10 +11,15 @@ command -v flutter >/dev/null 2>&1 || {
 
 PROJECT_NAME="tablet_vscode"
 TEMP_PROJECT=""
+GITIGNORE_BACKUP=""
 KEEP_RUNTIME="${KEEP_RUNTIME:-0}"
 
 cleanup() {
   if [[ -n "${TEMP_PROJECT}" && -d "${TEMP_PROJECT}" ]]; then rm -rf "${TEMP_PROJECT}"; fi
+  if [[ -n "${GITIGNORE_BACKUP}" && -f "${GITIGNORE_BACKUP}" ]]; then
+    cp "${GITIGNORE_BACKUP}" "${ROOT}/.gitignore"
+    rm -f "${GITIGNORE_BACKUP}"
+  fi
   if [[ "${KEEP_RUNTIME}" != "1" ]]; then
     rm -rf "${ROOT}/.runtime-cache" "${ROOT}/libnode"
     rm -f "${ROOT}/android/app/src/main/jniLibs/arm64-v8a/libnode.so"
@@ -101,6 +106,13 @@ if ! grep -q '^android\.r8\.proguardAndroidTxt\.disallowed=' android/gradle.prop
   printf '\nandroid.r8.proguardAndroidTxt.disallowed=false\n' >> android/gradle.properties
 fi
 
+# Flutter's asset scanner honors .gitignore. The downloaded server bundle is
+# intentionally ignored by Git, so temporarily remove only its ignore rule
+# while Flutter constructs the APK, then restore .gitignore in cleanup.
+GITIGNORE_BACKUP="$(mktemp)"
+cp .gitignore "${GITIGNORE_BACKUP}"
+sed -i '\|^assets/vscode/\*\*$|d' .gitignore
+
 flutter pub get
 
 [[ -f assets/vscode/out/server-main.js ]] || { echo "OpenVSCode Server assets were not prepared." >&2; exit 1; }
@@ -108,4 +120,8 @@ flutter pub get
 flutter build apk --release --target-platform android-arm64
 APK="$(find build/app/outputs/flutter-apk -maxdepth 1 -type f -name '*.apk' | head -1)"
 [[ -n "${APK}" ]] || { echo "APK output was not found." >&2; exit 1; }
+unzip -Z1 "${APK}" | grep -Fxq 'assets/flutter_assets/assets/vscode/out/server-main.js' || {
+  echo "APK is missing bundled OpenVSCode Server entry point: assets/flutter_assets/assets/vscode/out/server-main.js" >&2
+  exit 1
+}
 printf '\nAPK built successfully: %s\n' "${APK}"
