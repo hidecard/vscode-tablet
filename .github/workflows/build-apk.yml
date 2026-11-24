@@ -22,6 +22,17 @@ jobs:
           channel: stable
           cache: true
 
+      # Explicit pre-build check, independent of build-apk.sh: a CI APK must
+      # never be produced without the server assets. assets/vscode/ is
+      # gitignored (only .gitkeep is in the repo), so a build that skipped
+      # the fetch step would otherwise bundle an empty folder and fail on
+      # the tablet with "Missing .../out/server-main.js".
+      - name: Fetch and verify OpenVSCode Server assets
+        run: |
+          bash scripts/fetch-openvscode-assets.sh
+          test -f assets/vscode/out/server-main.js
+          test "$(find assets/vscode -type f | wc -l)" -gt 1000
+
       - name: Build arm64 release APK
         env:
           KEEP_RUNTIME: '0'
