@@ -6,6 +6,9 @@ Add the following inside the existing `android {}` block in `android/app/build.g
 android {
     defaultConfig {
         ndk { abiFilters += listOf("arm64-v8a") }
+        externalNativeBuild {
+            cmake { arguments += "-DANDROID_STL=c++_shared" }
+        }
     }
     externalNativeBuild {
         cmake { path = file("src/main/cpp/CMakeLists.txt") }
@@ -16,6 +19,7 @@ android {
 Add these entries to the existing `AndroidManifest.xml` only after reviewing your storage and distribution policy:
 
 ```xml
+<uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 <application android:usesCleartextTraffic="true" ... />
 ```

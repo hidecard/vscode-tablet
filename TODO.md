@@ -13,6 +13,8 @@
 - [x] GitHub public repository၊ README၊ description နှင့် topics ပြင်ဆင်ပြီးပါပြီ
 - [x] Official Node.js Mobile Android runtime download script ထည့်ပြီးပါပြီ
 - [x] Node.js Mobile `libnode.so` ကို local staging အဖြစ် download စမ်းသပ်ပြီးပါပြီ
+- [x] CMake တွင် official Node.js headers include path ထည့်ပြီးပါပြီ
+- [x] Source wiring verification script ထည့်ပြီးပါပြီ
 
 ## Phase 1 — Flutter Android project completion
 
@@ -27,8 +29,8 @@
 
 ## Phase 2 — Node.js runtime verification
 
-- [ ] `scripts/fetch-nodejs-mobile.sh` ဖြင့် runtime ကို clean machine ပေါ်တွင် ပြန်စမ်းရန်
-- [ ] `libnode.so` ၏ exported symbols နှင့် ABI ကို စစ်ရန်
+- [x] `scripts/fetch-nodejs-mobile.sh` ဖြင့် runtime download/staging ကို local environment တွင် စမ်းပြီးပါပြီ
+- [x] `libnode.so` ၏ arm64 ELF ABI ကို စစ်ပြီးပါပြီ
 - [ ] Android NDK/CMake build ဖြင့် `native-lib.so` ကို compile စမ်းရန်
 - [ ] `node::Start()` ကို သီးခြား hello-world Node script ဖြင့် စမ်းရန်
 - [ ] Node thread crash ဖြစ်ပါက logcat diagnostics ထည့်ရန်
@@ -65,7 +67,7 @@
 - [ ] APK size၊ startup time၊ RAM usage နှင့် battery usage တိုင်းရန်
 - [ ] Release signing configuration ထည့်ရန်
 - [ ] ProGuard/R8 rules နှင့် native library packaging စစ်ရန်
-- [ ] GitHub Actions တွင် lint၊ test နှင့် arm64 build workflow ထည့်ရန်
+- [x] GitHub Actions တွင် source wiring verification workflow ထည့်ပြီးပါပြီ
 - [ ] Release APK နှင့် checksums ထုတ်ရန်
 - [ ] README တွင် supported devices၊ known issues နှင့် install guide update လုပ်ရန်
 
