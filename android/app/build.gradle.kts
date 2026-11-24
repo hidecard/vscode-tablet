@@ -25,6 +25,7 @@ android {
         }
         externalNativeBuild {
             cmake {
+                abiFilters += "arm64-v8a"
                 cppFlags += ""
             }
         }
