@@ -68,6 +68,8 @@
 - [ ] Release signing configuration ထည့်ရန်
 - [ ] ProGuard/R8 rules နှင့် native library packaging စစ်ရန်
 - [x] GitHub Actions တွင် source wiring verification workflow ထည့်ပြီးပါပြီ
+- [x] Local arm64 APK build script ထည့်ပြီးပါပြီ
+- [x] GitHub Actions arm64 APK artifact workflow ထည့်ပြီးပါပြီ
 - [ ] Release APK နှင့် checksums ထုတ်ရန်
 - [ ] README တွင် supported devices၊ known issues နှင့် install guide update လုပ်ရန်
 
