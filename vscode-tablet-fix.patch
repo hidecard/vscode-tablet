@@ -1,0 +1,292 @@
+From 49de274e80d57e03798b77e92de0046ae1da79a2 Mon Sep 17 00:00:00 2001
+From: YBS Ai <ybs-ai@users.noreply.github.com>
+Date: Tue, 24 Nov 2026 07:56:19 +0000
+Subject: [PATCH] fix: bundle server assets reliably and make extraction
+ recoverable
+
+- MainActivity: only create .extracted_v1 after verifying
+  out/server-main.js; a missing/failed extraction now removes its
+  output so Retry re-extracts instead of failing forever on a stale
+  marker. copyAssetFolder() returns the copied file count and an
+  empty APK asset bundle fails with an actionable message.
+- fetch-openvscode-assets.sh: tar --no-same-owner (tar aborted on
+  uid/gid restore before copying assets when run as another user),
+  verify staged bundle (server-main.js + >1000 files), preserve the
+  tracked assets/vscode/.gitkeep.
+- build-apk.sh: always (re)stage server assets and verify them
+  before flutter pub get / flutter build apk, so a build fails
+  loudly instead of producing an APK that only fails on the tablet.
+- CI: explicit fetch + verify step before the APK build.
+- verify-source.sh: regression checks for the above.
+- README/TODO: document that the editor starts without the Linux
+  glibc native modules (spdlog load is caught; verified the staged
+  v1.109.5 server serves HTTP 200 on a Linux host), while the
+  integrated terminal (node-pty) and native file watcher still need
+  an Android Bionic rebuild.
+---
+ .github/workflows/build-apk.yml               | 11 ++++++
+ README.md                                     | 16 +++++---
+ TODO.md                                       | 14 +++++--
+ .../com/example/tablet_vscode/MainActivity.kt | 39 +++++++++++++++----
+ scripts/build-apk.sh                          | 16 ++++++--
+ scripts/fetch-openvscode-assets.sh            | 19 +++++++--
+ scripts/verify-source.sh                      | 11 ++++++
+ 7 files changed, 104 insertions(+), 22 deletions(-)
+
+diff --git a/.github/workflows/build-apk.yml b/.github/workflows/build-apk.yml
+index b261af0..e244198 100644
+--- a/.github/workflows/build-apk.yml
++++ b/.github/workflows/build-apk.yml
+@@ -22,6 +22,17 @@ jobs:
+           channel: stable
+           cache: true
+ 
++      # Explicit pre-build check, independent of build-apk.sh: a CI APK must
++      # never be produced without the server assets. assets/vscode/ is
++      # gitignored (only .gitkeep is in the repo), so a build that skipped
++      # the fetch step would otherwise bundle an empty folder and fail on
++      # the tablet with "Missing .../out/server-main.js".
++      - name: Fetch and verify OpenVSCode Server assets
++        run: |
++          bash scripts/fetch-openvscode-assets.sh
++          test -f assets/vscode/out/server-main.js
++          test "$(find assets/vscode -type f | wc -l)" -gt 1000
++
+       - name: Build arm64 release APK
+         env:
+           KEEP_RUNTIME: '0'
+diff --git a/README.md b/README.md
+index 1c569cc..3fbd902 100644
+--- a/README.md
++++ b/README.md
+@@ -2,7 +2,7 @@
+ 
+ A Flutter Android shell that runs **openvscode-server locally inside a standalone APK**—without requiring Termux. The app embeds an Android `arm64-v8a` Node.js runtime, extracts the server bundle on first launch, starts it in a background thread, and opens it at `127.0.0.1:8080` inside an in-app WebView.
+ 
+-> **Status: experimental starter.** This repository contains the integration source and build wiring. It does not include `libnode.so` or the openvscode-server distribution. Those artifacts must be built, licensed, and copied locally before an APK can be produced.
++> **Status: experimental.** The editor server starts from a correctly built APK (see "Automated APK build" below). The integrated terminal and native file watcher do not work yet: their native modules are Linux glibc binaries, and rebuilding them for Android Bionic is still open work. Do not build with plain `flutter build apk` — that skips the asset fetch and produces an APK that fails on first launch with `Missing .../out/server-main.js`.
+ 
+ ## Features
+ 
+@@ -49,9 +49,15 @@ Use the repository script to generate missing Flutter Android wrapper files, sta
+ bash scripts/build-apk.sh
+ ```
+ 
+-The output is written under `build/app/outputs/flutter-apk/`. The build script downloads both runtime packages automatically. Set `KEEP_RUNTIME=1` if you want to keep the downloaded runtime and assets after the build.
++The output is written under `build/app/outputs/flutter-apk/`. The build script downloads both runtime packages automatically and verifies the staged server bundle (it must contain `assets/vscode/out/server-main.js` and more than 1000 files) **before** running `flutter build apk`, so a build can fail loudly instead of producing an APK that only fails on the tablet. Set `KEEP_RUNTIME=1` if you want to keep the downloaded runtime and assets after the build.
+ 
+-The app now starts with an app-private workspace under `filesDir/workspace`, so it does not block startup when broad storage permission is denied. A future Storage Access Framework picker can grant access to user-selected folders without changing the startup flow. The OpenVSCode release still contains Linux arm64 native addons; `node-pty` and `@vscode/spdlog` must be rebuilt for Android Bionic before production use.
++> Do not run `flutter build apk` directly: `assets/vscode/` is gitignored (only `.gitkeep` is in the repo), so a direct build bundles an empty folder. Always use `bash scripts/build-apk.sh`, which (re)stages the assets first.
++
++The app now starts with an app-private workspace under `filesDir/workspace`, so it does not block startup when broad storage permission is denied. A future Storage Access Framework picker can grant access to user-selected folders without changing the startup flow. On first launch the app extracts the bundled server assets to `filesDir/vscode/` and only marks the extraction complete after verifying `out/server-main.js` exists; if extraction fails or the entry point is missing, the incomplete output is removed so Retry re-extracts instead of failing forever on a stale marker.
++
++## What works without the Linux native modules
++
++The bundled OpenVSCode Server v1.109.5 (linux-arm64, 3091 files) still contains Linux glibc native modules — `node-pty` (`pty.node`), `@vscode/spdlog` (`spdlog.node`), `@parcel/watcher` (`watcher.node`), `@vscode/native-watchdog` and `kerberos` all link `libc.so.6` / `libpthread.so.0`, which Android Bionic does not provide. Verified by running the staged `out/server-main.js` with a system Node on a Linux host: the server binds `127.0.0.1`, serves the workbench HTML (HTTP 200), and the `@vscode/spdlog` load failure is caught and logged (`ERR_DLOPEN_FAILED`) while the server keeps running. So the **editor starts without the native modules**; the **integrated terminal** (`node-pty`, loaded only when a terminal is opened) and the **native file watcher** (`@parcel/watcher`) will not work until those modules are rebuilt for Android Bionic with the NDK. That rebuild is still open work — do not expect terminal support from the current APK. (The host test was not an Android run: it used an x86_64 host Node, so the arm64 `.node` files could not load there either; on-device verification on an arm64 tablet is still needed.)
+ 
+ The build script also applies the temporary AGP 9 compatibility property required by the current `flutter_inappwebview_android` release plugin. It is written to `android/gradle.properties` only when missing.
+ 
+@@ -61,9 +67,9 @@ The official Node.js Mobile Android package provides Android shared libraries an
+ 
+ ## Important compatibility notes
+ 
+-- Linux x64/arm64 glibc native addons such as `node-pty` or `@vscode/spdlog` can crash on Android Bionic. Rebuild them with the Android NDK or replace them with Android-compatible modules.
++- Linux arm64 glibc native addons such as `node-pty`, `@vscode/spdlog` and `@parcel/watcher` cannot load on Android Bionic (they link `libc.so.6` / `libpthread.so.0`). The main server starts without them — the spdlog load is caught — but the integrated terminal and native file watcher will not work until they are rebuilt with the Android NDK or replaced with Android-compatible modules.
+ - `MANAGE_EXTERNAL_STORAGE` is restricted by Google Play policy. Prefer the Storage Access Framework for a Play-distributed app.
+-- The default workspace is `/storage/emulated/0/Documents`; change it if your app uses a scoped-storage design.
++- The default workspace is the app-private `filesDir/workspace` folder (not `/storage/emulated/0/Documents`).
+ - The JNI symbol includes `_1` for the underscore in `tablet_vscode`. If you change the package name, update the exported JNI function name too.
+ - The app currently supports one ABI. Add matching `libnode.so` builds and ABI filters before supporting more devices.
+ 
+diff --git a/TODO.md b/TODO.md
+index bd6e102..80e055e 100644
+--- a/TODO.md
++++ b/TODO.md
+@@ -15,6 +15,10 @@
+ - [x] Node.js Mobile `libnode.so` ကို local staging အဖြစ် download စမ်းသပ်ပြီးပါပြီ
+ - [x] CMake တွင် official Node.js headers include path ထည့်ပြီးပါပြီ
+ - [x] Source wiring verification script ထည့်ပြီးပါပြီ
++- [x] `Missing .../out/server-main.js` error ကို ပြင်ပြီးပါပြီ (2026-11-24): extraction marker ကို `server-main.js` ရှိမှ ဖန်တီးအောင်၊ ပျက်တဲ့ extraction ကို ဖျက်ပြီး Retry က ပြန်ကူးနိုင်အောင်၊ `copyAssetFolder` က ကူးတဲ့ ဖိုင်အရေအတွက် ပြန်ပေးအောင် ပြင်ပြီးပါပြီ
++- [x] Build/CI က asset မပါတဲ့ APK မထွက်အောင် ပြင်ပြီးပါပြီ: `build-apk.sh` က asset ကို အမြဲ ပြန် fetch + build မလုပ်ခင် စစ်တယ်၊ GitHub Actions မှာ fetch + verify အဆင့် သီးသန့် ထည့်ထားတယ်
++- [x] `fetch-openvscode-assets.sh` ရဲ့ tar ownership error ကို ပြင်ပြီးပါပြီ (`--no-same-owner`) — အရင်က root/container မှာ tar က ownership ပြောင်းမရလို့ script က ရပ်ပြီး asset မကူးဘဲ နေခဲ့တယ်
++- [x] OpenVSCode Server v1.109.5 bundle ရဲ့ native `.node` တွေကို စစ်ပြီးပါပြီ: အားလုံး glibc (`libc.so.6`) နဲ့ link ထားတယ်၊ main server ကတော့ spdlog load ပျက်တာကို catch လုပ်ပြီး ဆက်ပြီး run နိုင်တယ် (Linux host မှာ Node နဲ့ စမ်းပြီး HTTP 200 ရပြီ) — terminal/watcher native တွေကတော့ Bionic rebuild လိုသေးတယ်
+ 
+ ## Phase 1 — Flutter Android project completion
+ 
+@@ -39,9 +43,9 @@
+ 
+ ## Phase 3 — OpenVSCode Server Android port
+ 
+-- [ ] OpenVSCode Server version တစ်ခုကို သတ်မှတ်ပြီး source/build reproducibility ပြုလုပ်ရန်
+-- [ ] `out/server-main.js` နှင့် server runtime assets ကို Android asset bundle အဖြစ် assemble လုပ်ရန်
+-- [ ] Linux glibc native addons များကို Android Bionic အတွက် စစ်ဆေးရန်
++- [x] OpenVSCode Server version တစ်ခုကို သတ်မှတ်ပြီး source/build reproducibility ပြုလုပ်ရန် — v1.109.5 (linux-arm64) ကို `scripts/fetch-openvscode-assets.sh` မှာ pin ထားပြီး၊ build တိုင်းမှာ ပြန် fetch + verify လုပ်တယ်
++- [x] `out/server-main.js` နှင့် server runtime assets ကို Android asset bundle အဖြစ် assemble လုပ်ရန် — `build-apk.sh` + CI က 1000 ကျော် ဖိုင်ရှိမှ build လုပ်တယ်
++- [x] Linux glibc native addons များကို Android Bionic အတွက် စစ်ဆေးရန် — `pty.node`, `spdlog.node`, `watcher.node`, `watchdog.node`, `kerberos.node` အားလုံး `libc.so.6`/`libpthread.so.0` နဲ့ link ထားတာ စစ်ပြီးပြီ; main server က spdlog မလိုဘဲ စတင်နိုင်တာ Linux host မှာ စမ်းသပ်ပြီး အတည်ပြုပြီးပြီ
+ - [ ] `node-pty` ကို Android NDK ဖြင့် ပြန် build သို့မဟုတ် Android-compatible alternative ဖြင့် အစားထိုးရန်
+ - [ ] `@vscode/spdlog` နှင့် အခြား `.node` native modules များကို ပြန် build/replace လုပ်ရန်
+ - [ ] `server-main.js` ၏ file paths၊ temp paths နှင့် process spawning behavior ကို Android နှင့် ကိုက်ညီအောင် patch လုပ်ရန်
+@@ -78,4 +82,6 @@
+ 
+ ## Current blocker
+ 
+-OpenVSCode Server upstream release artifacts များသည် Linux/Docker အတွက် ဖြစ်သောကြောင့် Android APK ထဲသို့ တိုက်ရိုက်ထည့်၍ မရသေးပါ။ Android Bionic compatible server bundle နှင့် native addons ရရှိပြီးမှ standalone APK ကို အပြည့်အစုံ build/run လုပ်နိုင်ပါမည်။
++Integrated terminal နှင့် native file watcher အတွက် Android Bionic compatible native addons (`node-pty`, `@parcel/watcher`) မရှိသေးပါ — အဲ့တာတွေ rebuild လုပ်ပြီးမှ terminal/watcher အပြည့်အစုံ ရမည်။ Editor ကိုယ်တိုင်ကတော့ အဲ့ဒီ native modules မပါဘဲ စတင်နိုင်သည် (spdlog load ပျက်တာကို catch လုပ်ထားသည်)။ အဟောင်း APK ကို tablet မှာ install လုပ်ထားသေးရင် uninstall လုပ်ပြီးမှ APK အသစ် install လုပ်ပါ — အဟောင်း app data ထဲက stale extraction ရှိနေနိုင်သည်။
++
++အဟောင်း APK (2026-11-24 မတိုင်ခင် build) မှာ ဖြစ်ခဲ့တဲ့ `Missing .../out/server-main.js` error ကတော့ ဒီ branch မှာ ပြင်ပြီးပြီ: build က asset ကို verify လုပ်ပြီးမှ APK ထုတ်တယ်၊ app က marker ကို verify ပြီးမှ ဖန်တီးတယ်။
+diff --git a/android/app/src/main/kotlin/com/example/tablet_vscode/MainActivity.kt b/android/app/src/main/kotlin/com/example/tablet_vscode/MainActivity.kt
+index 16b0a50..4c360f3 100644
+--- a/android/app/src/main/kotlin/com/example/tablet_vscode/MainActivity.kt
++++ b/android/app/src/main/kotlin/com/example/tablet_vscode/MainActivity.kt
+@@ -38,13 +38,30 @@ class MainActivity : FlutterActivity() {
+             try {
+                 val targetDir = File(filesDir, "vscode")
+                 val marker = File(targetDir, ".extracted_v1")
+-                if (!marker.exists()) {
++                val entry = File(targetDir, "out/server-main.js")
++                // Extract whenever the marker is missing OR the entry point is
++                // missing. Previously the marker was created before the entry
++                // point was verified, so an APK built without server assets
++                // left a stale marker behind and Retry could never recover:
++                // every retry skipped extraction and failed with the same
++                // "Missing .../out/server-main.js" error. A failed or
++                // incomplete extraction now removes its own output, so the
++                // next attempt (Retry, or the next launch) re-extracts.
++                if (!marker.exists() || !entry.isFile) {
+                     if (targetDir.exists()) targetDir.deleteRecursively()
+-                    copyAssetFolder("flutter_assets/assets/vscode", targetDir)
++                    val copied = copyAssetFolder("flutter_assets/assets/vscode", targetDir)
++                    if (copied == 0) {
++                        targetDir.deleteRecursively()
++                        error("No openvscode-server assets found in this APK (0 files extracted from flutter_assets/assets/vscode). Rebuild the APK with scripts/build-apk.sh so assets/vscode/out/server-main.js is bundled.")
++                    }
++                    if (!entry.isFile) {
++                        targetDir.deleteRecursively()
++                        error("Missing ${entry.path} after extracting $copied asset files. Rebuild the APK with scripts/build-apk.sh so openvscode-server assets are bundled.")
++                    }
++                    // Only mark the extraction complete after the entry
++                    // point has been verified to exist on disk.
+                     marker.createNewFile()
+                 }
+-                val entry = File(targetDir, "out/server-main.js")
+-                require(entry.isFile) { "Missing ${entry.path}; add openvscode-server assets." }
+                 val workspace = File(filesDir, "workspace")
+                 if (!workspace.exists()) workspace.mkdirs()
+                 isServerStarted = true
+@@ -65,15 +82,23 @@ class MainActivity : FlutterActivity() {
+         }.start()
+     }
+ 
+-    private fun copyAssetFolder(assetPath: String, destination: File) {
++    // Copies a Flutter asset folder recursively. Returns the number of
++    // files copied, so callers can tell an empty asset bundle (an APK
++    // built without the openvscode-server assets) apart from a real one.
++    private fun copyAssetFolder(assetPath: String, destination: File): Int {
+         if (!destination.exists()) destination.mkdirs()
++        var copied = 0
+         for (name in assets.list(assetPath).orEmpty()) {
+             val source = "$assetPath/$name"
+             val target = File(destination, name)
+             val children = assets.list(source).orEmpty()
+-            if (children.isNotEmpty()) copyAssetFolder(source, target)
+-            else assets.open(source).use { input -> FileOutputStream(target).use { input.copyTo(it) } }
++            if (children.isNotEmpty()) copied += copyAssetFolder(source, target)
++            else {
++                assets.open(source).use { input -> FileOutputStream(target).use { input.copyTo(it) } }
++                copied++
++            }
+         }
++        return copied
+     }
+ 
+     private fun waitForServerReady(host: String, port: Int): Boolean {
+diff --git a/scripts/build-apk.sh b/scripts/build-apk.sh
+index 34f6147..64d5360 100755
+--- a/scripts/build-apk.sh
++++ b/scripts/build-apk.sh
+@@ -30,9 +30,19 @@ if [[ ! -f android/settings.gradle && ! -f android/settings.gradle.kts ]]; then
+ fi
+ 
+ bash scripts/fetch-nodejs-mobile.sh
+-if [[ ! -f assets/vscode/out/server-main.js ]]; then
+-  bash scripts/fetch-openvscode-assets.sh
+-fi
++# Always (re)stage the server assets, not only when server-main.js is
++# missing: a stale or partial assets/vscode/ directory would otherwise be
++# bundled silently and only fail on the tablet with
++# "Missing .../out/server-main.js". The fetch is cached (the archive is
++# reused when already downloaded), so this is cheap on rebuilds.
++bash scripts/fetch-openvscode-assets.sh
++
++# Fail fast here, before `flutter pub get` / `flutter build apk`, if the
++# staged bundle is incomplete. An APK must never be produced without the
++# server assets it needs to start.
++[[ -f assets/vscode/out/server-main.js ]] || { echo "OpenVSCode Server assets were not prepared: assets/vscode/out/server-main.js is missing after fetch." >&2; exit 1; }
++ASSET_FILE_COUNT="$(find assets/vscode -type f | wc -l)"
++[[ "${ASSET_FILE_COUNT}" -gt 1000 ]] || { echo "OpenVSCode Server assets look incomplete: only ${ASSET_FILE_COUNT} files in assets/vscode/." >&2; exit 1; }
+ 
+ # Add the native build wiring once, supporting both Flutter Gradle dialects.
+ if [[ -f android/app/build.gradle.kts ]]; then
+diff --git a/scripts/fetch-openvscode-assets.sh b/scripts/fetch-openvscode-assets.sh
+index 913a44c..891780d 100755
+--- a/scripts/fetch-openvscode-assets.sh
++++ b/scripts/fetch-openvscode-assets.sh
+@@ -14,17 +14,30 @@ if [[ ! -f "${ARCHIVE}" ]]; then
+ fi
+ rm -rf "${WORK}/unpacked"
+ mkdir -p "${WORK}/unpacked"
+-tar -xzf "${ARCHIVE}" -C "${WORK}/unpacked"
++# --no-same-owner: the release tarball records uid/gid 1001, and restoring
++# ownership fails (and, under `set -e`, aborts the script before the assets
++# are copied) when run as a different user, e.g. root in a container.
++tar --no-same-owner -xzf "${ARCHIVE}" -C "${WORK}/unpacked"
+ SOURCE="$(find "${WORK}/unpacked" -mindepth 1 -maxdepth 1 -type d -print -quit)"
+ [[ -n "${SOURCE}" ]] || { echo "OpenVSCode Server archive has no root directory" >&2; exit 1; }
+ [[ -f "${SOURCE}/out/server-main.js" ]] || { echo "OpenVSCode Server archive has no out/server-main.js" >&2; exit 1; }
+ 
+ rm -rf "${DEST}"
+ mkdir -p "${DEST}"
++# Keep the tracked .gitkeep: wiping DEST above would otherwise delete it
++# from the working copy on every fetch/build.
++touch "${DEST}/.gitkeep"
+ cp -R "${SOURCE}/." "${DEST}/"
+ # The APK starts Node through libnode.so, not the release's Linux launcher.
+ rm -f "${DEST}/bin/openvscode-server"
+ rm -rf "${DEST}/bin/remote-cli"
+ 
+-printf 'Prepared OpenVSCode Server %s assets at %s\n' "${VERSION}" "${DEST}"
+-printf '%s\n' 'Warning: bundled native .node modules are Linux arm64 artifacts. Rebuild node-pty/spdlog for Android Bionic before production use.'
++# Fail loudly here, at fetch time, if the staged bundle is incomplete --
++# otherwise the failure only surfaces on the tablet as
++# "Missing .../out/server-main.js" after the APK is built and installed.
++[[ -f "${DEST}/out/server-main.js" ]] || { echo "Staged OpenVSCode Server assets are missing out/server-main.js" >&2; exit 1; }
++ASSET_FILE_COUNT="$(find "${DEST}" -type f | wc -l)"
++[[ "${ASSET_FILE_COUNT}" -gt 1000 ]] || { echo "Staged OpenVSCode Server assets look incomplete: only ${ASSET_FILE_COUNT} files in ${DEST}" >&2; exit 1; }
++
++printf 'Prepared OpenVSCode Server %s assets at %s (%s files)\n' "${VERSION}" "${DEST}" "${ASSET_FILE_COUNT}"
++printf '%s\n' 'Warning: bundled native .node modules are Linux arm64 glibc artifacts (they link libc.so.6 / libpthread.so.0, which Android Bionic does not provide). The main server still starts without them -- the spdlog logger load is caught and falls back -- but the integrated terminal (node-pty) and the native file watcher (@parcel/watcher) will not work until those modules are rebuilt for Android Bionic. The editor itself is unaffected.'
+diff --git a/scripts/verify-source.sh b/scripts/verify-source.sh
+index c94af0d..374c0e3 100755
+--- a/scripts/verify-source.sh
++++ b/scripts/verify-source.sh
+@@ -25,6 +25,17 @@ grep -q "out/server-main.js" "${ROOT}/android/app/src/main/kotlin/com/example/ta
+ grep -q "WillPopScope" "${ROOT}/lib/main.dart"
+ grep -q "Retry" "${ROOT}/lib/main.dart"
+ grep -q "proguardAndroidTxt.disallowed=false" "${ROOT}/scripts/build-apk.sh"
++# Regression checks for the missing-server-main.js failure (2026-11-24):
++# the extraction marker must only be created after server-main.js is
++# verified, a stale marker must trigger re-extraction, and the build
++# must verify the staged assets before producing an APK.
++grep -q '!marker.exists() || !entry.isFile' "${ROOT}/android/app/src/main/kotlin/com/example/tablet_vscode/MainActivity.kt"
++grep -q 'copyAssetFolder.*: Int' "${ROOT}/android/app/src/main/kotlin/com/example/tablet_vscode/MainActivity.kt"
++grep -q 'tar --no-same-owner' "${ROOT}/scripts/fetch-openvscode-assets.sh"
++grep -q 'fetch-openvscode-assets.sh' "${ROOT}/.github/workflows/build-apk.yml"
++grep -q 'test -f assets/vscode/out/server-main.js' "${ROOT}/.github/workflows/build-apk.yml"
++grep -q 'ASSET_FILE_COUNT' "${ROOT}/scripts/build-apk.sh"
++grep -q 'ASSET_FILE_COUNT' "${ROOT}/scripts/fetch-openvscode-assets.sh"
+ 
+ bash -n "${ROOT}/scripts/fetch-nodejs-mobile.sh"
+ bash -n "${ROOT}/scripts/fetch-openvscode-assets.sh"
+-- 
+2.43.0
+

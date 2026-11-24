@@ -30,9 +30,19 @@ if [[ ! -f android/settings.gradle && ! -f android/settings.gradle.kts ]]; then
 fi
 
 bash scripts/fetch-nodejs-mobile.sh
-if [[ ! -f assets/vscode/out/server-main.js ]]; then
-  bash scripts/fetch-openvscode-assets.sh
-fi
+# Always (re)stage the server assets, not only when server-main.js is
+# missing: a stale or partial assets/vscode/ directory would otherwise be
+# bundled silently and only fail on the tablet with
+# "Missing .../out/server-main.js". The fetch is cached (the archive is
+# reused when already downloaded), so this is cheap on rebuilds.
+bash scripts/fetch-openvscode-assets.sh
+
+# Fail fast here, before `flutter pub get` / `flutter build apk`, if the
+# staged bundle is incomplete. An APK must never be produced without the
+# server assets it needs to start.
+[[ -f assets/vscode/out/server-main.js ]] || { echo "OpenVSCode Server assets were not prepared: assets/vscode/out/server-main.js is missing after fetch." >&2; exit 1; }
+ASSET_FILE_COUNT="$(find assets/vscode -type f | wc -l)"
+[[ "${ASSET_FILE_COUNT}" -gt 1000 ]] || { echo "OpenVSCode Server assets look incomplete: only ${ASSET_FILE_COUNT} files in assets/vscode/." >&2; exit 1; }
 
 # Add the native build wiring once, supporting both Flutter Gradle dialects.
 if [[ -f android/app/build.gradle.kts ]]; then

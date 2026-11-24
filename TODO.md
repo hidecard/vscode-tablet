@@ -15,6 +15,10 @@
 - [x] Node.js Mobile `libnode.so` ကို local staging အဖြစ် download စမ်းသပ်ပြီးပါပြီ
 - [x] CMake တွင် official Node.js headers include path ထည့်ပြီးပါပြီ
 - [x] Source wiring verification script ထည့်ပြီးပါပြီ
+- [x] `Missing .../out/server-main.js` error ကို ပြင်ပြီးပါပြီ (2026-11-24): extraction marker ကို `server-main.js` ရှိမှ ဖန်တီးအောင်၊ ပျက်တဲ့ extraction ကို ဖျက်ပြီး Retry က ပြန်ကူးနိုင်အောင်၊ `copyAssetFolder` က ကူးတဲ့ ဖိုင်အရေအတွက် ပြန်ပေးအောင် ပြင်ပြီးပါပြီ
+- [x] Build/CI က asset မပါတဲ့ APK မထွက်အောင် ပြင်ပြီးပါပြီ: `build-apk.sh` က asset ကို အမြဲ ပြန် fetch + build မလုပ်ခင် စစ်တယ်၊ GitHub Actions မှာ fetch + verify အဆင့် သီးသန့် ထည့်ထားတယ်
+- [x] `fetch-openvscode-assets.sh` ရဲ့ tar ownership error ကို ပြင်ပြီးပါပြီ (`--no-same-owner`) — အရင်က root/container မှာ tar က ownership ပြောင်းမရလို့ script က ရပ်ပြီး asset မကူးဘဲ နေခဲ့တယ်
+- [x] OpenVSCode Server v1.109.5 bundle ရဲ့ native `.node` တွေကို စစ်ပြီးပါပြီ: အားလုံး glibc (`libc.so.6`) နဲ့ link ထားတယ်၊ main server ကတော့ spdlog load ပျက်တာကို catch လုပ်ပြီး ဆက်ပြီး run နိုင်တယ် (Linux host မှာ Node နဲ့ စမ်းပြီး HTTP 200 ရပြီ) — terminal/watcher native တွေကတော့ Bionic rebuild လိုသေးတယ်
 
 ## Phase 1 — Flutter Android project completion
 
@@ -39,9 +43,9 @@
 
 ## Phase 3 — OpenVSCode Server Android port
 
-- [ ] OpenVSCode Server version တစ်ခုကို သတ်မှတ်ပြီး source/build reproducibility ပြုလုပ်ရန်
-- [ ] `out/server-main.js` နှင့် server runtime assets ကို Android asset bundle အဖြစ် assemble လုပ်ရန်
-- [ ] Linux glibc native addons များကို Android Bionic အတွက် စစ်ဆေးရန်
+- [x] OpenVSCode Server version တစ်ခုကို သတ်မှတ်ပြီး source/build reproducibility ပြုလုပ်ရန် — v1.109.5 (linux-arm64) ကို `scripts/fetch-openvscode-assets.sh` မှာ pin ထားပြီး၊ build တိုင်းမှာ ပြန် fetch + verify လုပ်တယ်
+- [x] `out/server-main.js` နှင့် server runtime assets ကို Android asset bundle အဖြစ် assemble လုပ်ရန် — `build-apk.sh` + CI က 1000 ကျော် ဖိုင်ရှိမှ build လုပ်တယ်
+- [x] Linux glibc native addons များကို Android Bionic အတွက် စစ်ဆေးရန် — `pty.node`, `spdlog.node`, `watcher.node`, `watchdog.node`, `kerberos.node` အားလုံး `libc.so.6`/`libpthread.so.0` နဲ့ link ထားတာ စစ်ပြီးပြီ; main server က spdlog မလိုဘဲ စတင်နိုင်တာ Linux host မှာ စမ်းသပ်ပြီး အတည်ပြုပြီးပြီ
 - [ ] `node-pty` ကို Android NDK ဖြင့် ပြန် build သို့မဟုတ် Android-compatible alternative ဖြင့် အစားထိုးရန်
 - [ ] `@vscode/spdlog` နှင့် အခြား `.node` native modules များကို ပြန် build/replace လုပ်ရန်
 - [ ] `server-main.js` ၏ file paths၊ temp paths နှင့် process spawning behavior ကို Android နှင့် ကိုက်ညီအောင် patch လုပ်ရန်
@@ -78,4 +82,6 @@
 
 ## Current blocker
 
-OpenVSCode Server upstream release artifacts များသည် Linux/Docker အတွက် ဖြစ်သောကြောင့် Android APK ထဲသို့ တိုက်ရိုက်ထည့်၍ မရသေးပါ။ Android Bionic compatible server bundle နှင့် native addons ရရှိပြီးမှ standalone APK ကို အပြည့်အစုံ build/run လုပ်နိုင်ပါမည်။
+Integrated terminal နှင့် native file watcher အတွက် Android Bionic compatible native addons (`node-pty`, `@parcel/watcher`) မရှိသေးပါ — အဲ့တာတွေ rebuild လုပ်ပြီးမှ terminal/watcher အပြည့်အစုံ ရမည်။ Editor ကိုယ်တိုင်ကတော့ အဲ့ဒီ native modules မပါဘဲ စတင်နိုင်သည် (spdlog load ပျက်တာကို catch လုပ်ထားသည်)။ အဟောင်း APK ကို tablet မှာ install လုပ်ထားသေးရင် uninstall လုပ်ပြီးမှ APK အသစ် install လုပ်ပါ — အဟောင်း app data ထဲက stale extraction ရှိနေနိုင်သည်။
+
+အဟောင်း APK (2026-11-24 မတိုင်ခင် build) မှာ ဖြစ်ခဲ့တဲ့ `Missing .../out/server-main.js` error ကတော့ ဒီ branch မှာ ပြင်ပြီးပြီ: build က asset ကို verify လုပ်ပြီးမှ APK ထုတ်တယ်၊ app က marker ကို verify ပြီးမှ ဖန်တီးတယ်။

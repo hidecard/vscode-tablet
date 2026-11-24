@@ -25,6 +25,17 @@ grep -q "out/server-main.js" "${ROOT}/android/app/src/main/kotlin/com/example/ta
 grep -q "WillPopScope" "${ROOT}/lib/main.dart"
 grep -q "Retry" "${ROOT}/lib/main.dart"
 grep -q "proguardAndroidTxt.disallowed=false" "${ROOT}/scripts/build-apk.sh"
+# Regression checks for the missing-server-main.js failure (2026-11-24):
+# the extraction marker must only be created after server-main.js is
+# verified, a stale marker must trigger re-extraction, and the build
+# must verify the staged assets before producing an APK.
+grep -q '!marker.exists() || !entry.isFile' "${ROOT}/android/app/src/main/kotlin/com/example/tablet_vscode/MainActivity.kt"
+grep -q 'copyAssetFolder.*: Int' "${ROOT}/android/app/src/main/kotlin/com/example/tablet_vscode/MainActivity.kt"
+grep -q 'tar --no-same-owner' "${ROOT}/scripts/fetch-openvscode-assets.sh"
+grep -q 'fetch-openvscode-assets.sh' "${ROOT}/.github/workflows/build-apk.yml"
+grep -q 'test -f assets/vscode/out/server-main.js' "${ROOT}/.github/workflows/build-apk.yml"
+grep -q 'ASSET_FILE_COUNT' "${ROOT}/scripts/build-apk.sh"
+grep -q 'ASSET_FILE_COUNT' "${ROOT}/scripts/fetch-openvscode-assets.sh"
 
 bash -n "${ROOT}/scripts/fetch-nodejs-mobile.sh"
 bash -n "${ROOT}/scripts/fetch-openvscode-assets.sh"
