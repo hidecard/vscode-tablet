@@ -62,6 +62,10 @@ class MainActivity : FlutterActivity() {
                     // point has been verified to exist on disk.
                     marker.createNewFile()
                 }
+                val workspace = File(filesDir, "workspace")
+                if (!workspace.exists() && !workspace.mkdirs()) {
+                    error("Could not create app-private workspace at ${workspace.path}")
+                }
                 val port = (8000..8999).random()
                 val token = java.util.UUID.randomUUID().toString().replace("-", "")
                 isServerStarted = true
