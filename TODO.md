@@ -52,10 +52,10 @@
 ## Phase 4 — Tablet UX and storage
 
 - [ ] Landscape/portrait tablet layouts စမ်းရန်
-- [ ] Hardware back button ကို WebView history နှင့် ချိတ်ရန်
+- [x] Hardware back button ကို WebView history နှင့် ချိတ်ပြီးပါပြီ
 - [ ] Keyboard၊ mouse၊ stylus input စမ်းရန်
 - [ ] User workspace folder ရွေးချယ်ရန် Storage Access Framework UI ထည့်ရန်
-- [ ] Permission denied၊ missing assets နှင့် server crash အတွက် retry screen ထည့်ရန်
+- [x] Permission denied နှင့် server start failure အတွက် retry screen ထည့်ပြီးပါပြီ
 - [ ] Offline first-launch progress နှင့် extraction progress ပြရန်
 - [ ] Screen rotation ပြောင်းချိန်တွင် WebView/server state မပျောက်အောင် ထိန်းရန်
 

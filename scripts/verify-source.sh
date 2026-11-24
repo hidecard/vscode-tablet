@@ -19,6 +19,8 @@ grep -q "com.example.tablet_vscode/server" "${ROOT}/android/app/src/main/kotlin/
 grep -q "Java_com_example_tablet_1vscode_MainActivity_startNodeWithArguments" "${ROOT}/android/app/src/main/cpp/native-lib.cpp"
 grep -q "arm64-v8a" "${ROOT}/scripts/fetch-nodejs-mobile.sh"
 grep -q "out/server-main.js" "${ROOT}/android/app/src/main/kotlin/com/example/tablet_vscode/MainActivity.kt"
+grep -q "WillPopScope" "${ROOT}/lib/main.dart"
+grep -q "Retry" "${ROOT}/lib/main.dart"
 
 bash -n "${ROOT}/scripts/fetch-nodejs-mobile.sh"
 bash -n "${ROOT}/scripts/verify-source.sh"
